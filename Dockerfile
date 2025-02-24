@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     pulseaudio \
     libasound-dev \
-    portaudio19-dev \  # Install portaudio for pyaudio
+    portaudio19-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up working directory
