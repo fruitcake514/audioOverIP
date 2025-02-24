@@ -1,11 +1,12 @@
 # Use a Python base image
 FROM python:3.9-slim
 
-# Install necessary dependencies
+# Install necessary system dependencies
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     pulseaudio \
     libasound-dev \
+    portaudio19-dev \  # Install portaudio for pyaudio
     && rm -rf /var/lib/apt/lists/*
 
 # Set up working directory
