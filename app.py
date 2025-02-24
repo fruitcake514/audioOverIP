@@ -6,31 +6,45 @@ import json
 from functools import wraps
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # For session management
+# Get secret key from environment or use a default (but prefer environment)
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24)) 
 
-# Configuration - load from config file or use defaults
+# Configuration - load from config file or use defaults from environment variables
 CONFIG_FILE = 'config.json'
 
 def load_config():
     if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, 'r') as f:
-            return json.load(f)
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            # If file exists but has issues, use environment variables
+            pass
+    
+    # Default configuration from environment variables
     return {
-        'host': '0.0.0.0',
+        'host': os.environ.get('HOST', '0.0.0.0'),
         'port': int(os.environ.get('PORT', 5000)),
-        'audio_source': 'microphone',  # Options: 'microphone', 'url'
+        'audio_source': os.environ.get('AUDIO_SOURCE', 'microphone'),  # 'microphone' or 'url'
         'stream_url': os.environ.get('STREAM_URL', ''),
         'admin_username': os.environ.get('ADMIN_USERNAME', 'admin'),
         'admin_password': os.environ.get('ADMIN_PASSWORD', 'password'),
-        'chunk_size': 1024,
-        'channels': 1,
-        'rate': 44100,
-        'format': pyaudio.paInt16
+        'chunk_size': int(os.environ.get('CHUNK_SIZE', 1024)),
+        'channels': int(os.environ.get('CHANNELS', 1)),
+        'rate': int(os.environ.get('SAMPLE_RATE', 44100)),
+        'format': pyaudio.paInt16,
+        'debug': os.environ.get('DEBUG', 'false').lower() == 'true'
     }
 
 def save_config(config):
-    with open(CONFIG_FILE, 'w') as f:
-        json.dump(config, f)
+    try:
+        with open(CONFIG_FILE, 'w') as f:
+            # Filter out non-serializable items like format
+            serializable_config = {k: v for k, v in config.items() if k != 'format'}
+            json.dump(serializable_config, f, indent=2)
+        return True
+    except IOError:
+        return False
 
 # Initialize config
 config = load_config()
@@ -164,12 +178,14 @@ def admin():
         config['channels'] = int(request.form.get('channels'))
         
         # Save to config file
-        save_config(config)
+        if save_config(config):
+            flash('Configuration updated successfully!')
+        else:
+            flash('Failed to save configuration. Check file permissions.')
         
         # Reinitialize audio with new settings
         init_audio()
         
-        flash('Configuration updated successfully!')
         return redirect(url_for('admin'))
     
     return render_template('admin.html', config=config)
@@ -198,4 +214,4 @@ if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
     
     # Run with the configured host and port
-    app.run(debug=True, host=config['host'], port=config['port'])
+    app.run(debug=config['debug'], host=config['host'], port=config['port'])
