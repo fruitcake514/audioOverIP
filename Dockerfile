@@ -1,7 +1,6 @@
-# Build Stage
-FROM python:3.9-slim AS builder
+FROM python:3.9-slim
 
-# Install dependencies required for building, including portaudio
+# Install system dependencies (including portaudio, ffmpeg, and others)
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     portaudio19-dev \
@@ -9,31 +8,19 @@ RUN apt-get update && apt-get install -y \
     libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
+# Set working directory
 WORKDIR /app
 
-# Copy requirements file and install dependencies in the builder stage
+# Copy requirements.txt to container
 COPY requirements.txt .
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Runtime Stage
-FROM python:3.9-slim
-
-# Install dependencies required at runtime, including portaudio
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    portaudio19-dev \
-    libsndfile1 \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Copy the Python dependencies from the builder stage
-COPY --from=builder /app /app
-
-# Copy the application files
+# Copy application files into container
 COPY . .
 
-# Set environment variables
+# Set environment variables for Flask
 ENV FLASK_APP=app.py \
     FLASK_ENV=production \
     PORT=5000 \
@@ -41,8 +28,8 @@ ENV FLASK_APP=app.py \
     ADMIN_PASSWORD=password \
     STREAM_URL=""
 
-# Expose the necessary port
+# Expose port for the application
 EXPOSE 5000
 
-# Start Flask application using the flask command
+# Command to run the Flask app
 CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
