@@ -2,20 +2,21 @@ version: "3.8"
 
 services:
   audio-stream-server:
-    build: .
+    build:
+      context: https://github.com/fruitcake514/audioOverIP.git  # GitHub URL for your repository
+      dockerfile: Dockerfile  # Path to the Dockerfile in the repo (if it's named something else)
     container_name: audio_stream_server
     ports:
       - "5000:5000"  # Web server port
       - "12345:12345" # Audio streaming port
     environment:
-      - RTSP_URL=rtsp://your-rtsp-stream-url  # Optional, set RTSP URL if using RTSP stream
-    volumes:
-      - ./app:/app
+      - RTSP_URL=rtsp://your-rtsp-stream-url  # Optional: set RTSP URL if using RTSP stream
     restart: always
 
-  # Optional: Web server for front-end interface
   web:
-    build: .
+    build:
+      context: https://github.com/fruitcake514/audioOverIP.git
+      dockerfile: Dockerfile
     container_name: web_server
     ports:
       - "5000:5000"
