@@ -96,44 +96,43 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Audio streaming function
 def generate_audio_stream():
     global ffmpeg_process
-    
+
     if config['audio_source'] == 'url' and config['stream_url']:
-        # Stream from URL using ffmpeg
+        # Determine audio format dynamically
+        audio_codec = config.get('audio_codec', 'pcm_s16le')
+        audio_format = config.get('audio_format', 'wav')
+
         command = [
             "ffmpeg",
             "-i", config['stream_url'],
             "-vn",  # Disable video
-            "-f", "wav",
-            "-acodec", "pcm_s16le",
+            "-f", audio_format,
+            "-acodec", audio_codec,
             "-ar", str(config['rate']),
             "-ac", str(config['channels']),
             "pipe:1"
         ]
 
-        ffmpeg_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ffmpeg_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
         try:
             while True:
                 data = ffmpeg_process.stdout.read(config['chunk_size'])
-                if data:
-                    yield data
-                else:
+                if not data:
                     break
+                yield data
         except:
             if ffmpeg_process:
                 ffmpeg_process.kill()
                 ffmpeg_process = None
-            
+
     elif config['audio_source'] == 'microphone' and microphone_stream:
-        # Stream from microphone
         try:
             while True:
                 data = microphone_stream.read(config['chunk_size'], exception_on_overflow=False)
-                if data:
-                    yield data
+                yield data
         except:
             if microphone_stream:
                 microphone_stream.stop_stream()
