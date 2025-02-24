@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Stream Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        video {
+            width: 100%;
+            max-width: 600px;
+            margin-top: 20px;
+        }
+        .btn {
+            padding: 10px 20px;
+            margin: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .btn:disabled {
+            background-color: #ccc;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Audio Stream Client</h1>
+    <button id="startBtn" class="btn">Start Stream</button>
+    <button id="stopBtn" class="btn" disabled>Stop Stream</button>
+    <video id="audioPlayer" controls>
+        Your browser does not support the audio element.
+    </video>
+</div>
+
+<script>
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const audioPlayer = document.getElementById('audioPlayer');
+
+    // Set the source URL of the stream here (e.g., HTTP or RTSP URL)
+    const streamUrl = "http://localhost:5000/stream";  // Replace with your actual stream URL
+
+    // Start the stream
+    startBtn.addEventListener('click', () => {
+        audioPlayer.src = streamUrl;
+        audioPlayer.play();
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+    });
+
+    // Stop the stream
+    stopBtn.addEventListener('click', () => {
+        audioPlayer.pause();
+        audioPlayer.src = '';  // Stop the stream
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+    });
+</script>
+
+</body>
+</html>
