@@ -3,33 +3,26 @@ version: '3.8'
 services:
   audio-stream:
     build:
-      context: https://github.com/fruitcake514/audioOverIP.git  # Your GitHub repository URL
+      context: https://github.com/fruitcake514/audioOverIP.git
       dockerfile: Dockerfile
     container_name: audio_stream_server
     ports:
-      - "5000:5000"  # Default port, explicitly defined
+      - "${PORT}:${PORT}"
     environment:
-      # Audio configuration
       - PORT=5000
-      - STREAM_URL=  # Empty by default, will use microphone
-      - AUDIO_SOURCE=microphone  # Options: microphone, url
-      
-      # Audio quality settings
-      - SAMPLE_RATE=44100  # 44.1kHz audio
-      - CHANNELS=1  # Mono audio
-      - CHUNK_SIZE=1024  # Buffer size
-      
-      # Security settings
-      - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=password
-      - SECRET_KEY=changethistosomethingsecure  # For session encryption openssl rand -hex 32
-      
-      # Application settings
-      - DEBUG=false  # Set to true for development
-      - HOST=0.0.0.0  # Listen on all interfaces
+      - STREAM_URL=""
+      - AUDIO_SOURCE=microphone
+      - SAMPLE_RATE=44100
+      - CHANNELS=1
+      - CHUNK_SIZE=1024
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SECRET_KEY=${SECRET_KEY} # openssl rand -hex 32
+      - DEBUG=false
+      - HOST=0.0.0.0
     restart: always
     volumes:
-      - ./config.json:/app/config.json  # Mount config file as volume
+      - ./config.json:/app/config.json
     logging:
       driver: "json-file"
       options:
@@ -40,3 +33,9 @@ services:
         limits:
           memory: 1G
           cpus: '0.5'
+    networks:
+      - audio_network
+
+networks:
+  audio_network:
+    driver: bridge
