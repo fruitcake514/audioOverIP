@@ -1,71 +1,201 @@
-from flask import Flask, Response
+from flask import Flask, Response, render_template, request, redirect, url_for, session, flash
 import pyaudio
 import subprocess
-import os  # For environment variable handling
+import os
+import json
+from functools import wraps
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)  # For session management
 
-HOST = '0.0.0.0'
+# Configuration - load from config file or use defaults
+CONFIG_FILE = 'config.json'
 
-# Get the port from the environment variable (default to 5000 if not set)
-PORT = int(os.environ.get('PORT', 5000))
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    return {
+        'host': '0.0.0.0',
+        'port': int(os.environ.get('PORT', 5000)),
+        'audio_source': 'microphone',  # Options: 'microphone', 'url'
+        'stream_url': os.environ.get('STREAM_URL', ''),
+        'admin_username': os.environ.get('ADMIN_USERNAME', 'admin'),
+        'admin_password': os.environ.get('ADMIN_PASSWORD', 'password'),
+        'chunk_size': 1024,
+        'channels': 1,
+        'rate': 44100,
+        'format': pyaudio.paInt16
+    }
 
-# Get RTSP stream URL from the environment (default to None if not set)
-RTSP_URL = os.environ.get('RTSP_URL', None)  # None if RTSP URL is not set
+def save_config(config):
+    with open(CONFIG_FILE, 'w') as f:
+        json.dump(config, f)
 
-# Audio parameters for microphone capture
-CHUNK_SIZE = 1024  # Number of frames per buffer
-FORMAT = pyaudio.paInt16  # Audio format (16-bit PCM)
-CHANNELS = 1  # Mono audio
-RATE = 44100  # Sample rate (44.1 kHz)
+# Initialize config
+config = load_config()
 
-# Initialize PyAudio for microphone input
-p = pyaudio.PyAudio()
-microphone_stream = p.open(format=FORMAT,
-                           channels=CHANNELS,
-                           rate=RATE,
-                           input=True,
-                           frames_per_buffer=CHUNK_SIZE)
+# Audio setup
+p = None
+microphone_stream = None
+ffmpeg_process = None
 
-# Audio streaming function to capture and stream audio
+def init_audio():
+    global p, microphone_stream, ffmpeg_process
+    
+    # Close existing resources if any
+    if ffmpeg_process:
+        ffmpeg_process.kill()
+        ffmpeg_process = None
+    
+    if microphone_stream:
+        microphone_stream.stop_stream()
+        microphone_stream.close()
+        microphone_stream = None
+    
+    if p:
+        p.terminate()
+    
+    # Initialize new audio resources based on current config
+    if config['audio_source'] == 'microphone':
+        p = pyaudio.PyAudio()
+        microphone_stream = p.open(
+            format=config['format'],
+            channels=config['channels'],
+            rate=config['rate'],
+            input=True,
+            frames_per_buffer=config['chunk_size']
+        )
+    else:
+        # URL-based streaming is initialized on-demand in generate_audio_stream
+        pass
+
+# Initialize audio on startup
+init_audio()
+
+# Admin authentication
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'logged_in' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Audio streaming function
 def generate_audio_stream():
-    if RTSP_URL:
-        # If RTSP stream URL is provided, use ffmpeg to capture the RTSP stream
+    global ffmpeg_process
+    
+    if config['audio_source'] == 'url' and config['stream_url']:
+        # Stream from URL using ffmpeg
         command = [
             "ffmpeg",
-            "-i", RTSP_URL,  # Input RTSP stream
-            "-vn",  # Disable video (we want only audio)
-            "-f", "wav",     # Output format (WAV)
-            "-acodec", "pcm_s16le",  # Audio codec for raw PCM audio
-            "-ar", "44100",  # Set audio sample rate
-            "-ac", "1",      # Mono channel
-            "pipe:1"         # Output to stdout (used for streaming)
+            "-i", config['stream_url'],
+            "-vn",  # Disable video
+            "-f", "wav",
+            "-acodec", "pcm_s16le",
+            "-ar", str(config['rate']),
+            "-ac", str(config['channels']),
+            "pipe:1"
         ]
 
         ffmpeg_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        while True:
-            data = ffmpeg_process.stdout.read(1024)  # Read from FFmpeg
-            if data:
-                yield data  # Stream data to client (HTTP)
+        try:
+            while True:
+                data = ffmpeg_process.stdout.read(config['chunk_size'])
+                if data:
+                    yield data
+                else:
+                    break
+        except:
+            if ffmpeg_process:
+                ffmpeg_process.kill()
+                ffmpeg_process = None
+            
+    elif config['audio_source'] == 'microphone' and microphone_stream:
+        # Stream from microphone
+        try:
+            while True:
+                data = microphone_stream.read(config['chunk_size'], exception_on_overflow=False)
+                if data:
+                    yield data
+        except:
+            if microphone_stream:
+                microphone_stream.stop_stream()
 
-    else:
-        # If RTSP stream is not provided, capture from the microphone
-        while True:
-            data = microphone_stream.read(CHUNK_SIZE)  # Read from microphone input stream
-            if data:
-                yield data  # Stream data to client (HTTP)
-
-# Route for serving the audio stream
+# Routes
 @app.route('/audio')
 def audio_stream():
-    return Response(generate_audio_stream(), content_type='audio/wav')
+    return Response(generate_audio_stream(), mimetype='audio/wav')
 
-# Route for serving the index.html file
 @app.route('/')
 def home():
-    return app.send_static_file('index.html')  # Flask will look in /static/ directory for this file
+    return render_template('index.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if username == config['admin_username'] and password == config['admin_password']:
+            session['logged_in'] = True
+            return redirect(url_for('admin'))
+        else:
+            flash('Invalid credentials. Please try again.')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('home'))
+
+@app.route('/admin', methods=['GET', 'POST'])
+@login_required
+def admin():
+    if request.method == 'POST':
+        # Update config from form
+        config['audio_source'] = request.form.get('audio_source')
+        config['stream_url'] = request.form.get('stream_url')
+        config['port'] = int(request.form.get('port'))
+        config['rate'] = int(request.form.get('rate'))
+        config['channels'] = int(request.form.get('channels'))
+        
+        # Save to config file
+        save_config(config)
+        
+        # Reinitialize audio with new settings
+        init_audio()
+        
+        flash('Configuration updated successfully!')
+        return redirect(url_for('admin'))
+    
+    return render_template('admin.html', config=config)
+
+@app.route('/check-stream')
+@login_required
+def check_stream():
+    """Test if stream URL is valid"""
+    if config['audio_source'] == 'url' and config['stream_url']:
+        try:
+            command = [
+                "ffprobe",
+                "-v", "error",
+                "-show_entries", "stream=codec_type",
+                "-of", "json",
+                config['stream_url']
+            ]
+            result = subprocess.run(command, capture_output=True, text=True)
+            return Response(result.stdout, mimetype='application/json')
+        except Exception as e:
+            return Response(json.dumps({"error": str(e)}), mimetype='application/json')
+    return Response(json.dumps({"error": "No stream URL configured"}), mimetype='application/json')
 
 if __name__ == '__main__':
-    # Use dynamic port from environment
-    app.run(debug=True, host=HOST, port=PORT)
+    # Ensure templates directory exists
+    os.makedirs('templates', exist_ok=True)
+    
+    # Run with the configured host and port
+    app.run(debug=True, host=config['host'], port=config['port'])
