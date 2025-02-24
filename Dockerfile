@@ -1,12 +1,15 @@
 # Use a Python base image
 FROM python:3.9-slim
 
-# Install necessary system dependencies
+# Install necessary system dependencies, including build tools
 RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    pulseaudio \
+    gcc \
+    python3-dev \
     libasound-dev \
     portaudio19-dev \
+    build-essential \
+    ffmpeg \
+    pulseaudio \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip to the latest version
