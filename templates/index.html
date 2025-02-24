@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Stream</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .audio-container {
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .btn {
+            padding: 10px 20px;
+            margin: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            font-style: italic;
+            color: #666;
+        }
+        footer {
+            margin-top: 40px;
+            color: #666;
+            font-size: 14px;
+        }
+        .admin-link {
+            margin-top: 30px;
+            font-size: 14px;
+        }
+        .admin-link a {
+            color: #666;
+            text-decoration: none;
+        }
+        .admin-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Audio Stream</h1>
+        
+        <div class="audio-container">
+            <h2>Live Audio</h2>
+            <div>
+                <button id="startBtn" class="btn">Start Listening</button>
+                <button id="stopBtn" class="btn" disabled>Stop</button>
+            </div>
+            
+            <div id="audioPlayerContainer" style="margin-top: 20px;">
+                <audio id="audioPlayer" controls style="width: 100%;">
+                    Your browser does not support the audio element.
+                </audio>
+            </div>
+            
+            <p id="status" class="status">Stream ready. Click "Start Listening" to begin.</p>
+        </div>
+        
+        <div class="admin-link">
+            <a href="/login">Admin Login</a>
+        </div>
+        
+        <footer>
+            &copy; 2025 Audio Streaming Service
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const audioPlayer = document.getElementById('audioPlayer');
+            const status = document.getElementById('status');
+            
+            // Set audio source to the streaming endpoint
+            const audioSource = '/audio';
+            
+            // Start streaming
+            startBtn.addEventListener('click', function() {
+                audioPlayer.src = audioSource;
+                audioPlayer.play()
+                    .then(() => {
+                        startBtn.disabled = true;
+                        stopBtn.disabled = false;
+                        status.textContent = 'Streaming audio...';
+                    })
+                    .catch(err => {
+                        status.textContent = 'Error: ' + err.message;
+                        console.error('Playback error:', err);
+                    });
+            });
+            
+            // Stop streaming
+            stopBtn.addEventListener('click', function() {
+                audioPlayer.pause();
+                audioPlayer.src = '';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                status.textContent = 'Stream stopped. Click "Start Listening" to resume.';
+            });
+            
+            // Handle errors
+            audioPlayer.addEventListener('error', function() {
+                status.textContent = 'Error: Cannot play the audio stream.';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            });
+        });
+    </script>
+</body>
+</html>
