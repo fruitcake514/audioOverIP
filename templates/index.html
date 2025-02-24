@@ -95,46 +95,65 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const startBtn = document.getElementById('startBtn');
-            const stopBtn = document.getElementById('stopBtn');
-            const audioPlayer = document.getElementById('audioPlayer');
-            const status = document.getElementById('status');
+    document.addEventListener('DOMContentLoaded', function() {
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const status = document.getElementById('status');
+        
+        // Create WebSocket connection
+        const socket = io.connect(window.location.origin);
+
+        let audioChunks = [];
+        let isStreaming = false;
+
+        // Start streaming via WebSocket
+        startBtn.addEventListener('click', function() {
+            socket.emit('request_audio');  // Request audio stream
+            status.textContent = 'Streaming audio...';
+
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
             
-            // Set audio source to the streaming endpoint
-            const audioSource = '/audio';
-            
-            // Start streaming
-            startBtn.addEventListener('click', function() {
-                audioPlayer.src = audioSource;
-                audioPlayer.play()
-                    .then(() => {
-                        startBtn.disabled = true;
-                        stopBtn.disabled = false;
-                        status.textContent = 'Streaming audio...';
-                    })
-                    .catch(err => {
-                        status.textContent = 'Error: ' + err.message;
-                        console.error('Playback error:', err);
-                    });
-            });
-            
-            // Stop streaming
-            stopBtn.addEventListener('click', function() {
-                audioPlayer.pause();
-                audioPlayer.src = '';
-                startBtn.disabled = false;
-                stopBtn.disabled = true;
-                status.textContent = 'Stream stopped. Click "Start Listening" to resume.';
-            });
-            
-            // Handle errors
-            audioPlayer.addEventListener('error', function() {
-                status.textContent = 'Error: Cannot play the audio stream.';
-                startBtn.disabled = false;
-                stopBtn.disabled = true;
-            });
+            // Clear previous chunks before starting new stream
+            audioChunks = [];
+            isStreaming = true;
         });
-    </script>
+
+        // Stop streaming
+        stopBtn.addEventListener('click', function() {
+            isStreaming = false;
+            audioPlayer.src = '';
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            status.textContent = 'Stream stopped. Click "Start Listening" to resume.';
+        });
+
+        // Handle incoming audio data from WebSocket
+        socket.on('audio_data', function(chunk) {
+            if (isStreaming) {
+                audioChunks.push(chunk);
+                const blob = new Blob(audioChunks, { type: 'audio/wav' });
+                const audioUrl = URL.createObjectURL(blob);
+                audioPlayer.src = audioUrl;
+                audioPlayer.play();
+            }
+        });
+
+        // Handle WebSocket errors
+        socket.on('connect_error', function(error) {
+            status.textContent = 'Error: WebSocket connection failed.';
+            console.error('WebSocket connection error:', error);
+        });
+
+        // Handle audio player errors
+        audioPlayer.addEventListener('error', function() {
+            status.textContent = 'Error: Cannot play the audio stream.';
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        });
+    });
+</script>
+
 </body>
 </html>
