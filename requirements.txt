@@ -1,2 +1,7 @@
 Flask
+Flask-SocketIO
+flask-cors
+requests
+pydub
 pyaudio
+numpy
