@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  audio-stream-server:
+    build: .
+    container_name: audio_stream_server
+    ports:
+      - "5000:5000"  # Web server port
+      - "12345:12345" # Audio streaming port
+    environment:
+      - RTSP_URL=rtsp://your-rtsp-stream-url  # Optional, set RTSP URL if using RTSP stream
+    volumes:
+      - ./app:/app
+    restart: always
+
+  # Optional: Web server for front-end interface
+  web:
+    build: .
+    container_name: web_server
+    ports:
+      - "5000:5000"
+    restart: always
+    depends_on:
+      - audio-stream-server
