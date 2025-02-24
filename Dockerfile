@@ -1,35 +1,37 @@
-FROM python:3.9-slim
+# Build Stage
+FROM python:3.9-slim AS builder
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     portaudio19-dev \
     gcc \
+    libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
-
-# Copy requirements
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
+# Runtime Stage
+FROM python:3.9-slim
+
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    portaudio19-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=builder /app /app
 COPY . .
 
-# Create templates directory if it doesn't exist
-RUN mkdir -p templates
-
-# Create environment for config
-ENV PORT=5000 \
+# Set environment variables
+ENV FLASK_APP=app.py \
+    FLASK_ENV=production \
+    PORT=5000 \
     ADMIN_USERNAME=admin \
     ADMIN_PASSWORD=password \
     STREAM_URL=""
 
-# Expose port
-EXPOSE ${PORT}
+EXPOSE 5000
 
-# Run the application
-CMD ["python", "app.py"]
+CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
