@@ -1,31 +1,35 @@
-# Use a Python base image
 FROM python:3.9-slim
 
-# Install necessary system dependencies, including build tools
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
-    python3-dev \
-    libasound-dev \
-    portaudio19-dev \
-    build-essential \
     ffmpeg \
-    pulseaudio \
+    portaudio19-dev \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip to the latest version
-RUN pip install --upgrade pip
-
-# Set up working directory
+# Set working directory
 WORKDIR /app
 
-# Copy the application code into the container
-COPY . /app
+# Copy requirements
+COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose port for Flask
-EXPOSE 5000
+# Copy application files
+COPY . .
 
-# Command to run the Flask app and stream server
+# Create templates directory if it doesn't exist
+RUN mkdir -p templates
+
+# Create environment for config
+ENV PORT=5000 \
+    ADMIN_USERNAME=admin \
+    ADMIN_PASSWORD=password \
+    STREAM_URL=""
+
+# Expose port
+EXPOSE ${PORT}
+
+# Run the application
 CMD ["python", "app.py"]
