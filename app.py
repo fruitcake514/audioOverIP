@@ -11,8 +11,8 @@ HOST = '0.0.0.0'
 # Get the port from the environment variable (default to 5000 if not set)
 PORT = int(os.environ.get('PORT', 5000))
 
-# RTSP stream URL (optional)
-RTSP_URL = "rtsp://your-rtsp-stream-url"
+# Get RTSP stream URL from the environment (default to a placeholder if not set)
+RTSP_URL = os.environ.get('RTSP_URL', 'rtsp://your-rtsp-stream-url')
 
 # Audio streaming function to capture and stream audio
 def generate_audio_stream():
@@ -38,10 +38,11 @@ def generate_audio_stream():
 def audio_stream():
     return Response(generate_audio_stream(), content_type='audio/wav')
 
+# Route for serving the index.html file
 @app.route('/')
 def home():
-    return app.send_static_file('index.html')
+    return app.send_static_file('index.html')  # Flask will look in /static/ directory for this file
 
 if __name__ == '__main__':
-    # Use dynamic port
+    # Use dynamic port from environment
     app.run(debug=True, host=HOST, port=PORT)
