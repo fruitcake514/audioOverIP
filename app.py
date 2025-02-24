@@ -4,10 +4,11 @@ import subprocess
 import os
 import json
 from functools import wraps
+from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
 # Get secret key from environment or use a default (but prefer environment)
-app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24)) 
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 
 # Configuration - load from config file or use defaults from environment variables
 CONFIG_FILE = 'config.json'
@@ -207,9 +208,18 @@ def check_stream():
             return Response(json.dumps({"error": str(e)}), mimetype='application/json')
     return Response(json.dumps({"error": "No stream URL configured"}), mimetype='application/json')
 
+# Set up WebSocket for audio streaming
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+@socketio.on('request_audio')
+def stream_audio():
+    """Handle WebSocket audio stream request"""
+    for chunk in generate_audio_stream():
+        socketio.emit('audio_data', chunk)
+
 if __name__ == '__main__':
     # Ensure templates directory exists
     os.makedirs('templates', exist_ok=True)
     
-    # Run with the configured host and port
-    app.run(debug=config['debug'], host=config['host'], port=config['port'])
+    # Run the app with WebSocket support
+    socketio.run(app, debug=config['debug'], host=config['host'], port=config['port'])
