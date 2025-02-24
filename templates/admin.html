@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Stream Admin</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .logout-btn {
+            padding: 8px 16px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .form-container {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .btn {
+            padding: 12px 24px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .btn-test {
+            background-color: #2196F3;
+        }
+        .btn-test:hover {
+            background-color: #0b7dda;
+        }
+        .status-indicator {
+            margin-top: 10px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        .flash-message {
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .advanced-options {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+        .hidden {
+            display: none;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #666;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Audio Stream Administration</h1>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </header>
+        
+        <div class="flash-messages">
+            {% for message in get_flashed_messages() %}
+                <div class="flash-message">{{ message }}</div>
+            {% endfor %}
+        </div>
+        
+        <div class="form-container">
+            <h2>Stream Configuration</h2>
+            
+            <form id="configForm" method="POST" action="/admin">
+                <div class="form-group">
+                    <label for="audio_source">Audio Source:</label>
+                    <select id="audio_source" name="audio_source">
+                        <option value="microphone" {% if config.audio_source == 'microphone' %}selected{% endif %}>Microphone (Server)</option>
+                        <option value="url" {% if config.audio_source == 'url' %}selected{% endif %}>Stream URL</option>
+                    </select>
+                </div>
+                
+                <div id="urlSettings" class="form-group {% if config.audio_source != 'url' %}hidden{% endif %}">
+                    <label for="stream_url">Stream URL:</label>
+                    <input type="text" id="stream_url" name="stream_url" value="{{ config.stream_url }}" placeholder="e.g., http://example.com/audio.mp3 or rtsp://example.com/stream">
+                    <button type="button" id="testStream" class="btn btn-test" style="margin-top: 10px;">Test Stream</button>
+                    <div id="streamStatus" class="status-indicator"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="port">Server Port:</label>
+                    <input type="number" id="port" name="port" value="{{ config.port }}" min="1024" max="65535">
+                    <small style="display: block; margin-top: 5px; color: #666;">Changes to port require server restart</small>
+                </div>
+                
+                <div class="advanced-options">
+                    <h3>Advanced Audio Settings</h3>
+                    
+                    <div class="form-group">
+                        <label for="rate">Sample Rate (Hz):</label>
+                        <select id="rate" name="rate">
+                            <option value="8000" {% if config.rate == 8000 %}selected{% endif %}>8000 Hz</option>
+                            <option value="16000" {% if config.rate == 16000 %}selected{% endif %}>16000 Hz</option>
+                            <option value="22050" {% if config.rate == 22050 %}selected{% endif %}>22050 Hz</option>
+                            <option value="44100" {% if config.rate == 44100 %}selected{% endif %}>44100 Hz</option>
+                            <option value="48000" {% if config.rate == 48000 %}selected{% endif %}>48000 Hz</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="channels">Audio Channels:</label>
+                        <select id="channels" name="channels">
+                            <option value="1" {% if config.channels == 1 %}selected{% endif %}>Mono (1)</option>
+                            <option value="2" {% if config.channels == 2 %}selected{% endif %}>Stereo (2)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn">Save Configuration</button>
+            </form>
+        </div>
+        
+        <a href="/" class="back-link">← Back to Stream</a>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const audioSource = document.getElementById('audio_source');
+            const urlSettings = document.getElementById('urlSettings');
+            const testStreamBtn = document.getElementById('testStream');
+            const streamStatus = document.getElementById('streamStatus');
+            
+            // Show/hide URL settings based on audio source selection
+            audioSource.addEventListener('change', function() {
+                if (this.value === 'url') {
+                    urlSettings.classList.remove('hidden');
+                } else {
+                    urlSettings.classList.add('hidden');
+                }
+            });
+            
+            // Test stream URL
+            testStreamBtn.addEventListener('click', function() {
+                const streamUrl = document.getElementById('stream_url').value.trim();
+                
+                if (!streamUrl) {
+                    streamStatus.textContent = 'Please enter a stream URL first.';
+                    streamStatus.className = 'status-indicator error';
+                    streamStatus.style.display = 'block';
+                    return;
+                }
+                
+                streamStatus.textContent = 'Testing stream...';
+                streamStatus.className = 'status-indicator';
+                streamStatus.style.display = 'block';
+                
+                fetch('/check-stream')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            streamStatus.textContent = 'Error: ' + data.error;
+                            streamStatus.className = 'status-indicator error';
+                        } else if (data.streams) {
+                            const hasAudio = data.streams.some(stream => stream.codec_type === 'audio');
+                            if (hasAudio) {
+                                streamStatus.textContent = 'Success! Stream contains audio.';
+                                streamStatus.className = 'status-indicator success';
+                            } else {
+                                streamStatus.textContent = 'Warning: Stream found but no audio detected.';
+                                streamStatus.className = 'status-indicator error';
+                            }
+                        } else {
+                            streamStatus.textContent = 'Unknown response from server.';
+                            streamStatus.className = 'status-indicator error';
+                        }
+                    })
+                    .catch(error => {
+                        streamStatus.textContent = 'Connection error: ' + error.message;
+                        streamStatus.className = 'status-indicator error';
+                    });
+            });
+            
+            // Auto-hide flash messages after 5 seconds
+            const flashMessages = document.querySelectorAll('.flash-message');
+            if (flashMessages.length > 0) {
+                setTimeout(() => {
+                    flashMessages.forEach(msg => {
+                        msg.style.opacity = '0';
+                        msg.style.transition = 'opacity 1s';
+                        setTimeout(() => {
+                            msg.style.display = 'none';
+                        }, 1000);
+                    });
+                }, 5000);
+            }
+        });
+    </script>
+</body>
+</html>
