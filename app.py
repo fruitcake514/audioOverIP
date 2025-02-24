@@ -169,24 +169,23 @@ def logout():
 @login_required
 def admin():
     if request.method == 'POST':
-        # Update config from form
         config['audio_source'] = request.form.get('audio_source')
         config['stream_url'] = request.form.get('stream_url')
         config['port'] = int(request.form.get('port'))
         config['rate'] = int(request.form.get('rate'))
         config['channels'] = int(request.form.get('channels'))
-        
-        # Save to config file
+        config['audio_codec'] = request.form.get('audio_codec', 'pcm_s16le')
+        config['audio_format'] = request.form.get('audio_format', 'wav')
+
         if save_config(config):
             flash('Configuration updated successfully!')
         else:
-            flash('Failed to save configuration. Check file permissions.')
-        
-        # Reinitialize audio with new settings
+            flash('Failed to save configuration.')
+
         init_audio()
-        
+
         return redirect(url_for('admin'))
-    
+
     return render_template('admin.html', config=config)
 
 @app.route('/check-stream')
