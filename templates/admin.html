@@ -145,8 +145,9 @@
                 <div id="urlSettings" class="form-group {% if config.audio_source != 'url' %}hidden{% endif %}">
                     <label for="stream_url">Stream URL:</label>
                     <input type="text" id="stream_url" name="stream_url" value="{{ config.stream_url }}" placeholder="e.g., http://example.com/audio.mp3 or rtsp://example.com/stream">
-                    <button type="button" id="testStream" class="btn btn-test" style="margin-top: 10px;">Test Stream</button>
+                   <button type="button" id="testStream" class="btn btn-test" aria-label="Test stream connection" style="margin-top: 10px;">Test Stream</button>
                     <div id="streamStatus" class="status-indicator"></div>
+                    <div id="loadingIndicator" class="status-indicator hidden">Testing stream...</div>
                 </div>
                 
                 <div class="form-group">
@@ -203,7 +204,8 @@
             
             // Test stream URL
             testStreamBtn.addEventListener('click', function() {
-                const streamUrl = document.getElementById('stream_url').value.trim();
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    loadingIndicator.classList.remove('hidden');
                 
                 if (!streamUrl) {
                     streamStatus.textContent = 'Please enter a stream URL first.';
