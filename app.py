@@ -2,11 +2,14 @@ from flask import Flask, Response
 import pyaudio
 import socket
 import subprocess
+import os  # Add os to read environment variables
 
 app = Flask(__name__)
 
 HOST = '0.0.0.0'
-PORT = 12345
+
+# Get the port from the environment variable (default to 5000 if not set)
+PORT = int(os.environ.get('PORT', 5000))
 
 # RTSP stream URL (optional)
 RTSP_URL = "rtsp://your-rtsp-stream-url"
@@ -40,4 +43,5 @@ def home():
     return app.send_static_file('index.html')
 
 if __name__ == '__main__':
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    # Use dynamic port
+    app.run(debug=True, host=HOST, port=PORT)
