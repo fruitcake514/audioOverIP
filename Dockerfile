@@ -1,7 +1,7 @@
 # Build Stage
 FROM python:3.9-slim AS builder
 
-# Install dependencies required for building
+# Install dependencies required for building, including portaudio
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     portaudio19-dev \
@@ -18,10 +18,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Runtime Stage
 FROM python:3.9-slim
 
-# Install dependencies required at runtime
+# Install dependencies required at runtime, including portaudio
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     portaudio19-dev \
+    libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -39,9 +40,6 @@ ENV FLASK_APP=app.py \
     ADMIN_USERNAME=admin \
     ADMIN_PASSWORD=password \
     STREAM_URL=""
-
-# Install flask in runtime image (to be absolutely sure it's installed)
-RUN pip install --no-cache-dir Flask
 
 # Expose the necessary port
 EXPOSE 5000
