@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy requirements file and install dependencies
+# Copy requirements file and install dependencies in the builder stage
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -26,10 +26,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy the installed dependencies from the builder stage
+# Copy the Python dependencies from the builder stage
 COPY --from=builder /app /app
 
-# Copy the rest of the app code
+# Copy the application files
 COPY . .
 
 # Set environment variables
@@ -39,6 +39,9 @@ ENV FLASK_APP=app.py \
     ADMIN_USERNAME=admin \
     ADMIN_PASSWORD=password \
     STREAM_URL=""
+
+# Install flask in runtime image (to be absolutely sure it's installed)
+RUN pip install --no-cache-dir Flask
 
 # Expose the necessary port
 EXPOSE 5000
