@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   audio-stream:
     build:
@@ -5,16 +7,36 @@ services:
       dockerfile: Dockerfile
     container_name: audio_stream_server
     ports:
-      - "${PORT:-5000}:${PORT:-5000}"
+      - "5000:5000"  # Default port, explicitly defined
     environment:
-      - PORT=${PORT:-5000}
-      - STREAM_URL=${STREAM_URL:-}
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-password}
+      # Audio configuration
+      - PORT=5000
+      - STREAM_URL=  # Empty by default, will use microphone
+      - AUDIO_SOURCE=microphone  # Options: microphone, url
+      
+      # Audio quality settings
+      - SAMPLE_RATE=44100  # 44.1kHz audio
+      - CHANNELS=1  # Mono audio
+      - CHUNK_SIZE=1024  # Buffer size
+      
+      # Security settings
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=password
+      - SECRET_KEY=changethistosomethingsecure  # For session encryption openssl rand -hex 32
+      
+      # Application settings
+      - DEBUG=false  # Set to true for development
+      - HOST=0.0.0.0  # Listen on all interfaces
     restart: always
     volumes:
-      - ./config:/app/config.json  # Mount config file as volume to persist changes
+      - ./config.json:/app/config.json  # Mount config file as volume
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     deploy:
       resources:
         limits:
           memory: 1G
+          cpus: '0.5'
