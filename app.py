@@ -1,40 +1,43 @@
-import subprocess
+from flask import Flask, Response
+import pyaudio
 import socket
-import threading
+import subprocess
 
-# Set up RTSP stream URL
-RTSP_URL = "rtsp://your-rtsp-stream-url"
+app = Flask(__name__)
 
-# Audio streaming parameters
 HOST = '0.0.0.0'
 PORT = 12345
 
-def stream_audio_from_rtsp():
-    # Set up the FFmpeg command to capture audio from the RTSP stream
+# RTSP stream URL (optional)
+RTSP_URL = "rtsp://your-rtsp-stream-url"
+
+# Audio streaming function to capture and stream audio
+def generate_audio_stream():
     command = [
         "ffmpeg",
-        "-i", RTSP_URL,        # Input RTSP stream
-        "-f", "wav",           # Output format
-        "-acodec", "pcm_s16le", # Audio codec for raw PCM audio
-        "-ar", "44100",        # Set audio sample rate
-        "-ac", "1",            # Mono channel
-        "pipe:1"               # Output to stdout
+        "-i", RTSP_URL,  # Input RTSP stream (optional)
+        "-f", "wav",     # Output format
+        "-acodec", "pcm_s16le",  # Audio codec for raw PCM audio
+        "-ar", "44100",  # Set audio sample rate
+        "-ac", "1",      # Mono channel
+        "pipe:1"         # Output to stdout (used for streaming)
     ]
-    
-    # Start the FFmpeg process to capture the RTSP stream
-    ffmpeg_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    
-    # Create socket for streaming
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.bind((HOST, PORT))
 
-    print("Streaming RTSP audio...")
+    ffmpeg_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     while True:
-        data = ffmpeg_process.stdout.read(1024)  # Read data from FFmpeg output
+        data = ffmpeg_process.stdout.read(1024)  # Read from FFmpeg
         if data:
-            s.sendto(data, (HOST, PORT))  # Send data to the receiver
+            yield data  # Stream data to client (HTTP)
 
-# Run the streaming in a separate thread
-stream_thread = threading.Thread(target=stream_audio_from_rtsp)
-stream_thread.start()
+# Route for serving the audio stream
+@app.route('/audio')
+def audio_stream():
+    return Response(generate_audio_stream(), content_type='audio/wav')
+
+@app.route('/')
+def home():
+    return app.send_static_file('index.html')
+
+if __name__ == '__main__':
+    app.run(debug=True, host="0.0.0.0", port=5000)
