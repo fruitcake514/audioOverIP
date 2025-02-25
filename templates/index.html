@@ -101,29 +101,46 @@ document.addEventListener('DOMContentLoaded', function() {
     const stopBtn = document.getElementById('stopBtn');
     const audioPlayer = document.getElementById('audioPlayer');
     const status = document.getElementById('status');
-    
+
+    let isStreaming = false;
+    let mediaSource;
+    let sourceBuffer;
+    let audioChunks = [];
+
     // Create WebSocket connection
     const socket = io.connect(window.location.origin);
 
-    let audioChunks = [];
-    let isStreaming = false;
-
-    // Start streaming via WebSocket
+    // Start Streaming
     startBtn.addEventListener('click', function() {
-        socket.emit('request_audio');  // Request audio stream
-        status.textContent = 'Streaming audio...';
+        if (!isStreaming) {
+            isStreaming = true;
+            audioChunks = [];
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            status.textContent = 'Streaming audio...';
 
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-        
-        // Clear previous chunks before starting new stream
-        audioChunks = [];
-        isStreaming = true;
+            mediaSource = new MediaSource();
+            audioPlayer.src = URL.createObjectURL(mediaSource);
+
+            mediaSource.addEventListener('sourceopen', () => {
+                sourceBuffer = mediaSource.addSourceBuffer('audio/wav; codecs=1');
+
+                socket.emit('request_audio');  // Request audio stream
+                console.log("WebSocket connected, waiting for audio data...");
+            });
+        }
     });
 
-    // Stop streaming
+    // Stop Streaming
     stopBtn.addEventListener('click', function() {
         isStreaming = false;
+        if (socket) {
+            socket.disconnect();  // Close WebSocket connection
+        }
+        if (mediaSource) {
+            mediaSource.endOfStream();  // Signal end of stream
+        }
+        audioPlayer.pause();
         audioPlayer.src = '';
         startBtn.disabled = false;
         stopBtn.disabled = true;
@@ -132,12 +149,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Handle incoming audio data from WebSocket
     socket.on('audio_data', function(chunk) {
-        if (isStreaming) {
-            audioChunks.push(chunk);
-            const blob = new Blob(audioChunks, { type: 'audio/wav' });
-            const audioUrl = URL.createObjectURL(blob);
-            audioPlayer.src = audioUrl;
-            audioPlayer.play();
+        if (isStreaming && sourceBuffer && !sourceBuffer.updating) {
+            const audioBlob = new Uint8Array(chunk);
+            sourceBuffer.appendBuffer(audioBlob);
         }
     });
 
@@ -147,13 +161,14 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('WebSocket connection error:', error);
     });
 
-    // Handle audio player errors
+    // Handle media errors
     audioPlayer.addEventListener('error', function() {
         status.textContent = 'Error: Cannot play the audio stream.';
         startBtn.disabled = false;
         stopBtn.disabled = true;
     });
 });
+
 </script>
 
 
