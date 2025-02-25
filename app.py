@@ -102,29 +102,37 @@ def generate_audio_stream():
 
     if config['audio_source'] == 'url' and config['stream_url']:
         stream_url = config['stream_url']
+        command = ["ffmpeg", "-i", stream_url, "-vn"]  # Disable video
 
-        # Determine format dynamically based on the protocol
-        if stream_url.startswith("rtsp") or stream_url.startswith("rtmp"):
-            input_format = "flv"  # RTMP/RTSP usually use FLV container
+        # Special handling for different streaming protocols
+        if stream_url.startswith("rtsp"):
+            command.insert(1, "-rtsp_transport")
+            command.insert(2, "tcp")  # Ensure TCP mode for RTSP
+        elif stream_url.startswith("rtmp"):
+            command.insert(1, "-timeout")
+            command.insert(2, "5000000")  # Set timeout for RTMP streams
         elif stream_url.endswith(".m3u8"):  # HLS stream
-            input_format = "hls"
-        elif stream_url.startswith("webrtc"):  # WebRTC
-            input_format = "webrtc"
-        else:
-            input_format = "wav"  # Default format
-
-        command = [
-            "ffmpeg",
-            "-i", stream_url,
-            "-vn",  # Disable video
-            "-f", input_format,
+            command.insert(1, "-protocol_whitelist")
+            command.insert(2, "file,http,https,tcp,tls")  # Ensure HLS works
+        elif "webrtc" in stream_url:
+            command.insert(1, "-protocol_whitelist")
+            command.insert(2, "rtp,udp,ice,stun,tcp,tls")  # Ensure WebRTC support
+        elif stream_url.startswith("http") and (".mp3" in stream_url or ".aac" in stream_url):
+            command.insert(1, "-reconnect")
+            command.insert(2, "1")  # Reconnect option for HTTP radio streams
+        
+        # Audio output settings
+        command += [
+            "-f", "wav",  # Output format (do NOT use "hls" or "flv" here)
             "-acodec", "pcm_s16le",
             "-ar", str(config['rate']),
             "-ac", str(config['channels']),
             "pipe:1"
         ]
 
-        ffmpeg_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        print(f"Running FFmpeg command: {' '.join(command)}")  # Debugging line
+
+        ffmpeg_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         try:
             while True:
@@ -132,11 +140,11 @@ def generate_audio_stream():
                 if not data:
                     break
                 yield data
-        except:
+        except Exception as e:
+            print(f"FFmpeg Error: {str(e)}")
             if ffmpeg_process:
                 ffmpeg_process.kill()
                 ffmpeg_process = None
-
 
 # Routes
 @app.route('/audio')
