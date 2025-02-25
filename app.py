@@ -102,35 +102,24 @@ def generate_audio_stream():
 
     if config['audio_source'] == 'url' and config['stream_url']:
         stream_url = config['stream_url']
-        command = ["ffmpeg", "-i", stream_url, "-vn"]  # Disable video
-
-        # Special handling for different streaming protocols
-        if stream_url.startswith("rtsp"):
-            command.insert(1, "-rtsp_transport")
-            command.insert(2, "tcp")  # Ensure TCP mode for RTSP
-        elif stream_url.startswith("rtmp"):
-            command.insert(1, "-timeout")
-            command.insert(2, "5000000")  # Set timeout for RTMP streams
-        elif stream_url.endswith(".m3u8"):  # HLS stream
-            command.insert(1, "-protocol_whitelist")
-            command.insert(2, "file,http,https,tcp,tls")  # Ensure HLS works
-        elif "webrtc" in stream_url:
-            command.insert(1, "-protocol_whitelist")
-            command.insert(2, "rtp,udp,ice,stun,tcp,tls")  # Ensure WebRTC support
-        elif stream_url.startswith("http") and (".mp3" in stream_url or ".aac" in stream_url):
-            command.insert(1, "-reconnect")
-            command.insert(2, "1")  # Reconnect option for HTTP radio streams
         
-        # Audio output settings
-        command += [
-            "-f", "wav",  # Output format (do NOT use "hls" or "flv" here)
+        # Ensure HLS (`.m3u8`) streams work correctly
+        command = [
+            "ffmpeg",
+            "-protocol_whitelist", "file,http,https,tcp,tls",
+            "-fflags", "nobuffer",  # Reduce latency
+            "-i", stream_url,
+            "-vn",  # Disable video
+            "-f", "wav",  # Output format
             "-acodec", "pcm_s16le",
             "-ar", str(config['rate']),
             "-ac", str(config['channels']),
+            "-bufsize", "64k",  # Buffering fix
+            "-flush_packets", "1",  # Ensure proper chunking
             "pipe:1"
         ]
 
-        print(f"Running FFmpeg command: {' '.join(command)}")  # Debugging line
+        print(f"Running FFmpeg command: {' '.join(command)}")  # Debugging
 
         ffmpeg_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
