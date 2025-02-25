@@ -101,16 +101,24 @@ def generate_audio_stream():
     global ffmpeg_process
 
     if config['audio_source'] == 'url' and config['stream_url']:
-        # Determine audio format dynamically
-        audio_codec = config.get('audio_codec', 'pcm_s16le')
-        audio_format = config.get('audio_format', 'wav')
+        stream_url = config['stream_url']
+
+        # Determine format dynamically based on the protocol
+        if stream_url.startswith("rtsp") or stream_url.startswith("rtmp"):
+            input_format = "flv"  # RTMP/RTSP usually use FLV container
+        elif stream_url.endswith(".m3u8"):  # HLS stream
+            input_format = "hls"
+        elif stream_url.startswith("webrtc"):  # WebRTC
+            input_format = "webrtc"
+        else:
+            input_format = "wav"  # Default format
 
         command = [
             "ffmpeg",
-            "-i", config['stream_url'],
+            "-i", stream_url,
             "-vn",  # Disable video
-            "-f", audio_format,
-            "-acodec", audio_codec,
+            "-f", input_format,
+            "-acodec", "pcm_s16le",
             "-ar", str(config['rate']),
             "-ac", str(config['channels']),
             "pipe:1"
@@ -129,14 +137,6 @@ def generate_audio_stream():
                 ffmpeg_process.kill()
                 ffmpeg_process = None
 
-    elif config['audio_source'] == 'microphone' and microphone_stream:
-        try:
-            while True:
-                data = microphone_stream.read(config['chunk_size'], exception_on_overflow=False)
-                yield data
-        except:
-            if microphone_stream:
-                microphone_stream.stop_stream()
 
 # Routes
 @app.route('/audio')
@@ -171,12 +171,10 @@ def logout():
 def admin():
     if request.method == 'POST':
         config['audio_source'] = request.form.get('audio_source')
-        config['stream_url'] = request.form.get('stream_url')
+        config['stream_url'] = request.form.get('stream_url').strip()  # Ensure no spaces
         config['port'] = int(request.form.get('port'))
         config['rate'] = int(request.form.get('rate'))
         config['channels'] = int(request.form.get('channels'))
-        config['audio_codec'] = request.form.get('audio_codec', 'pcm_s16le')
-        config['audio_format'] = request.form.get('audio_format', 'wav')
 
         if save_config(config):
             flash('Configuration updated successfully!')
@@ -189,24 +187,32 @@ def admin():
 
     return render_template('admin.html', config=config)
 
+
 @app.route('/check-stream')
 @login_required
 def check_stream():
-    """Test if stream URL is valid"""
-    if config['audio_source'] == 'url' and config['stream_url']:
-        try:
-            command = [
-                "ffprobe",
-                "-v", "error",
-                "-show_entries", "stream=codec_type",
-                "-of", "json",
-                config['stream_url']
-            ]
-            result = subprocess.run(command, capture_output=True, text=True)
-            return Response(result.stdout, mimetype='application/json')
-        except Exception as e:
-            return Response(json.dumps({"error": str(e)}), mimetype='application/json')
-    return Response(json.dumps({"error": "No stream URL configured"}), mimetype='application/json')
+    """Test if stream URL is valid and supports audio."""
+    stream_url = config.get('stream_url', '')
+
+    if not stream_url:
+        return Response(json.dumps({"error": "No stream URL configured"}), mimetype='application/json')
+
+    try:
+        command = [
+            "ffprobe",
+            "-v", "error",
+            "-select_streams", "a",  # Ensure we're checking the audio stream
+            "-show_entries", "stream=codec_type",
+            "-of", "json",
+            stream_url
+        ]
+        result = subprocess.run(command, capture_output=True, text=True)
+        
+        return Response(result.stdout, mimetype='application/json')
+
+    except Exception as e:
+        return Response(json.dumps({"error": str(e)}), mimetype='application/json')
+
 
 # Set up WebSocket for audio streaming
 socketio = SocketIO(app, cors_allowed_origins="*")
