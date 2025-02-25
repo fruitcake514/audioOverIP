@@ -202,47 +202,50 @@
                 }
             });
             
-            // Test stream URL
             testStreamBtn.addEventListener('click', function() {
     const loadingIndicator = document.getElementById('loadingIndicator');
     loadingIndicator.classList.remove('hidden');
-                
-                if (!streamUrl) {
-                    streamStatus.textContent = 'Please enter a stream URL first.';
+
+    // Define streamUrl by getting the value from the input field
+    const streamUrl = document.getElementById('stream_url').value.trim();
+
+    if (!streamUrl) {
+        streamStatus.textContent = 'Please enter a stream URL first.';
+        streamStatus.className = 'status-indicator error';
+        streamStatus.style.display = 'block';
+        return;
+    }
+
+    streamStatus.textContent = 'Testing stream...';
+    streamStatus.className = 'status-indicator';
+    streamStatus.style.display = 'block';
+
+    fetch('/check-stream')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                streamStatus.textContent = 'Error: ' + data.error;
+                streamStatus.className = 'status-indicator error';
+            } else if (data.streams) {
+                const hasAudio = data.streams.some(stream => stream.codec_type === 'audio');
+                if (hasAudio) {
+                    streamStatus.textContent = 'Success! Stream contains audio.';
+                    streamStatus.className = 'status-indicator success';
+                } else {
+                    streamStatus.textContent = 'Warning: Stream found but no audio detected.';
                     streamStatus.className = 'status-indicator error';
-                    streamStatus.style.display = 'block';
-                    return;
                 }
-                
-                streamStatus.textContent = 'Testing stream...';
-                streamStatus.className = 'status-indicator';
-                streamStatus.style.display = 'block';
-                
-                fetch('/check-stream')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.error) {
-                            streamStatus.textContent = 'Error: ' + data.error;
-                            streamStatus.className = 'status-indicator error';
-                        } else if (data.streams) {
-                            const hasAudio = data.streams.some(stream => stream.codec_type === 'audio');
-                            if (hasAudio) {
-                                streamStatus.textContent = 'Success! Stream contains audio.';
-                                streamStatus.className = 'status-indicator success';
-                            } else {
-                                streamStatus.textContent = 'Warning: Stream found but no audio detected.';
-                                streamStatus.className = 'status-indicator error';
-                            }
-                        } else {
-                            streamStatus.textContent = 'Unknown response from server.';
-                            streamStatus.className = 'status-indicator error';
-                        }
-                    })
-                    .catch(error => {
-                        streamStatus.textContent = 'Connection error: ' + error.message;
-                        streamStatus.className = 'status-indicator error';
-                    });
-            });
+            } else {
+                streamStatus.textContent = 'Unknown response from server.';
+                streamStatus.className = 'status-indicator error';
+            }
+        })
+        .catch(error => {
+            streamStatus.textContent = 'Connection error: ' + error.message;
+            streamStatus.className = 'status-indicator error';
+        });
+});
+
             
             // Auto-hide flash messages after 5 seconds
             const flashMessages = document.querySelectorAll('.flash-message');
