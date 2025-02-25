@@ -95,6 +95,7 @@
     </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.js" integrity="sha512-8BHxHDLsOHx+flIrQ0DrZcea7MkHqRU5GbTHmbdzMRnAaoCIkZ97PqZcXJkKZckMMhqfoeaJE+DNUVuyoQsO3Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/0.5.14/hls.min.js" integrity="sha512-js37JxjD6gtmJ3N2Qzl9vQm4wcmTilFffk0nTSKzgr3p6aitg73LR205203wTzCCC/NZYO2TAxSa0Lr2VMLQvQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const startBtn = document.getElementById('startBtn');
@@ -103,42 +104,44 @@ document.addEventListener('DOMContentLoaded', function() {
     const status = document.getElementById('status');
 
     let isStreaming = false;
-    let mediaSource;
-    let sourceBuffer;
-    let audioChunks = [];
+    let socket = null;
+    let hls = null;
 
-    // Create WebSocket connection
-    const socket = io.connect(window.location.origin);
-
-    // Start Streaming
     startBtn.addEventListener('click', function() {
         if (!isStreaming) {
             isStreaming = true;
-            audioChunks = [];
             startBtn.disabled = true;
             stopBtn.disabled = false;
             status.textContent = 'Streaming audio...';
 
-            mediaSource = new MediaSource();
-            audioPlayer.src = URL.createObjectURL(mediaSource);
+            socket = io.connect(window.location.origin, { transports: ['websocket'] });
 
-            mediaSource.addEventListener('sourceopen', () => {
-                sourceBuffer = mediaSource.addSourceBuffer('audio/wav; codecs=1');
+            // Check if browser supports native HLS
+            if (audioPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                audioPlayer.src = "/audio";  // Stream directly
+            } else if (Hls.isSupported()) {
+                hls = new Hls();
+                hls.loadSource("/audio");
+                hls.attachMedia(audioPlayer);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    audioPlayer.play();
+                });
+            } else {
+                status.textContent = "HLS not supported in this browser.";
+            }
 
-                socket.emit('request_audio');  // Request audio stream
-                console.log("WebSocket connected, waiting for audio data...");
-            });
+            socket.emit('request_audio');
         }
     });
 
-    // Stop Streaming
     stopBtn.addEventListener('click', function() {
         isStreaming = false;
         if (socket) {
-            socket.disconnect();  // Close WebSocket connection
+            socket.disconnect();
         }
-        if (mediaSource) {
-            mediaSource.endOfStream();  // Signal end of stream
+        if (hls) {
+            hls.destroy();
+            hls = null;
         }
         audioPlayer.pause();
         audioPlayer.src = '';
@@ -147,29 +150,13 @@ document.addEventListener('DOMContentLoaded', function() {
         status.textContent = 'Stream stopped. Click "Start Listening" to resume.';
     });
 
-    // Handle incoming audio data from WebSocket
-    socket.on('audio_data', function(chunk) {
-        if (isStreaming && sourceBuffer && !sourceBuffer.updating) {
-            const audioBlob = new Uint8Array(chunk);
-            sourceBuffer.appendBuffer(audioBlob);
-        }
-    });
-
-    // Handle WebSocket errors
-    socket.on('connect_error', function(error) {
-        status.textContent = 'Error: WebSocket connection failed.';
-        console.error('WebSocket connection error:', error);
-    });
-
-    // Handle media errors
-    audioPlayer.addEventListener('error', function() {
+    audioPlayer.addEventListener('error', function(event) {
+        console.error('Audio playback error:', event);
         status.textContent = 'Error: Cannot play the audio stream.';
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
     });
 });
-
 </script>
+
 
 
 </body>
